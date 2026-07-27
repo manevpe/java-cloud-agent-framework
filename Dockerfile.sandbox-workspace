@@ -34,7 +34,7 @@
 FROM eclipse-temurin:25-jdk-noble AS java
 FROM node:26-bookworm-slim AS node
 FROM golang:1.26-bookworm AS go
-FROM docker:27-cli AS docker-cli
+FROM docker:29-cli AS docker-cli
 
 FROM debian:13-slim
 
