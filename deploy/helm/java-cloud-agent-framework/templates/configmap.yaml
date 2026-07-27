@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "java-cloud-agent-framework.fullname" . }}
+  labels:
+    {{- include "java-cloud-agent-framework.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.config | nindent 2 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "java-cloud-agent-framework.fullname" . }}-workflows
+  labels:
+    {{- include "java-cloud-agent-framework.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.workflows | nindent 2 }}

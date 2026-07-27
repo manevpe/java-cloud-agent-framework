@@ -1,0 +1,110 @@
+# Same Jira -> plan -> PR flow as jira-to-pr.yaml, but the planning stage
+# uses the conversation-session model (ConversationalPlanningAgent +
+# conversation-resume-gate) instead of the fixed single-round human-gate —
+# see ADR-0003 for why both models are kept side by side rather than
+# replacing one with the other.
+#
+# Where jira-to-pr.yaml's PlanningAgent drafts a plan, returns any open
+# questions, and relies on a rigid plan -> await-clarifications -> plan
+# loop (one Slack round per graph traversal), this workflow's
+# ConversationalPlanningAgent instead runs its own internal loop: it can
+# call the askHuman tool as many times in a row as it judges necessary,
+# with each reply replayed into the same persistent ConversationSession,
+# before ever handing control back to the graph. The graph itself only
+# ever sees two outcomes from the "plan" node: paused-on-a-question, or
+# done.
+workflow:
+  id: jira-to-pr-conversational
+  trigger:
+    type: webhook
+    source: jira
+    condition: "labels.contains('ready-for-dev')"
+
+  nodes:
+    - id: plan
+      agent: conversational-planning-agent
+      config:
+        llmProfile: vertex-gemini-planner
+        # Each entry is a self-contained source spec: {type: directory,
+        # path: ...} reads that directory's files verbatim, {type: neo4j,
+        # database: ...} queries the given database in the shared Neo4j
+        # instance (agentic.knowledge.neo4j.enabled must be true) — see
+        # NodeKnowledgeSourceResolver. Different nodes can list entirely
+        # different sources. An empty/omitted list means this node gets
+        # no knowledge context at all.
+        knowledgeSources:
+          - type: directory
+            path: ./knowledge/backstage-catalog
+          - type: directory
+            path: ./knowledge/context-files
+          - type: neo4j
+            database: domain-knowledge
+        # Configured per-node, not globally — see HumanInteractionClientRegistry
+        # and AskHumanTool's Javadoc. Swapping to a future messaging provider
+        # (e.g. Teams) means only changing "provider" here once it's registered.
+        humanInteraction:
+          provider: slack
+          target: "#dev-agent-plans"
+        # Total askHuman rounds this conversation may use before it must
+        # finalize regardless — see ConversationalPlanningAgent's Javadoc.
+        # Default is 12 if omitted.
+        maxConversationRounds: 12
+
+    - id: conversation-resume-gate
+      agent: conversation-resume-gate
+      resumeTrigger:
+        type: event
+        source: slack
+        event: thread_reply
+
+    - id: post-plan
+      agent: jira-updater-agent
+
+    - id: implement
+      agent: coding-agent
+      config:
+        mode: implement
+        llmProfile: vertex-gemini-coder
+        knowledgeSources:
+          - type: directory
+            path: ./knowledge/backstage-catalog
+          # - type: neo4j
+          #   database: domain-knowledge
+        repository: acme/example-service
+
+    - id: pr-feedback-loop
+      agent: pr-comment-gate
+      resumeTrigger:
+        type: event
+        source: github
+        event: pr_review_submitted_or_closed
+
+    - id: respond-to-pr-comment
+      agent: coding-agent
+      config:
+        mode: respond-to-review
+        maxIterations: 5
+
+  edges:
+    - from: plan
+      to: conversation-resume-gate
+      condition: conversationAwaitingHuman
+    - from: plan
+      to: post-plan
+      condition: conversationComplete
+    # Loops back into "plan" (not straight to post-plan): the agent's own
+    # conversation loop decides on the next reply whether it needs another
+    # round or is ready to finalize, via conversationAwaitingHuman/
+    # conversationComplete — see ConversationalPlanningAgent's Javadoc.
+    - from: conversation-resume-gate
+      to: plan
+    - from: post-plan
+      to: implement
+    - from: implement
+      to: pr-feedback-loop
+      condition: sandboxTestsPassed
+    - from: pr-feedback-loop
+      to: respond-to-pr-comment
+    - from: respond-to-pr-comment
+      to: pr-feedback-loop
+      condition: canContinuePrFeedbackLoop

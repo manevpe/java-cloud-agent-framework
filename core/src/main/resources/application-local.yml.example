@@ -1,0 +1,65 @@
+# Local-dev secrets/defaults template.
+#
+# application.yml intentionally has NO defaults for credentials (datasource
+# password, Neo4j password, Vertex AI project id, ...) — those are only ever
+# supplied via environment variables (see the Helm chart's ConfigMap/Secret
+# in deploy/helm) so nothing sensitive is ever committed.
+#
+# For local development, copy this file to `application-local.yml`
+# (gitignored) in this same directory and fill in real values, then run with
+# the `local` profile active, e.g.:
+#
+#   SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+#
+# `application-local.yml` is loaded automatically once the `local` profile
+# is active (Spring Boot's `application-{profile}.yml` convention) and its
+# values override anything in application.yml.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/java_cloud_agent_framework
+    username: agentic
+    password: agentic
+
+agentic:
+  llm:
+    enabled: false
+    # Pick one provider (see LlmProperties/GoogleGenAiAutoConfiguration/
+    # GitHubModelsAutoConfiguration):
+    provider: google-genai
+    google-genai:
+      # Preferred: a free Google AI Studio API key (Gemini Developer API
+      # backend) — get one at https://aistudio.google.com/apikey, no GCP
+      # project/billing/IAM required. 1M-token context window, generous
+      # free-tier request limits.
+      api-key: your-ai-studio-api-key
+      model: gemini-flash-lite-latest
+      # Or, to use Vertex AI instead (requires Application Default
+      # Credentials + IAM permission on the project below) — leave
+      # api-key blank/unset and set:
+      # project-id: your-gcp-project-id
+    # Or, to use GitHub Models (models.github.ai) instead — an officially
+    # supported, OpenAI-compatible endpoint authenticated with a GitHub PAT
+    # that has the `models: read` permission. Note: GitHub Models enforces
+    # a hard per-request token cap (e.g. 8000 tokens for openai/gpt-4.1)
+    # regardless of Copilot plan, and is being retired July 30, 2026 — not
+    # recommended for workflows exploring large repos via tool-calling:
+    # provider: github-models
+    # github-models:
+    #   token: ghp_your-real-token
+    #   model: openai/gpt-4o
+    #   # or, for Claude Sonnet 5 via GitHub Models:
+    #   # model: anthropic/claude-sonnet-5
+  knowledge:
+    # Each workflow node's own knowledgeSources: [...] config in the
+    # workflow YAML specifies directories/databases inline, e.g.:
+    #   knowledgeSources:
+    #     - type: directory
+    #       path: ./knowledge/backstage-catalog
+    #     - type: neo4j
+    #       database: domain-knowledge
+    neo4j:
+      enabled: false
+      uri: bolt://localhost:7687
+      username: neo4j
+      password: change-me

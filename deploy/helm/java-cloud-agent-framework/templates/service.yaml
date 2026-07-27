@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "java-cloud-agent-framework.fullname" . }}
+  labels:
+    {{- include "java-cloud-agent-framework.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "java-cloud-agent-framework.selectorLabels" . | nindent 4 }}

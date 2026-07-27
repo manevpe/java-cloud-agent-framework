@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1
+#
+# TEMPORARY fast-path Dockerfile for local iteration only.
+# Reuses jars already built on the host (via `./gradlew build`) instead of
+# recompiling everything inside the container — avoids the multi-minute
+# uncached Gradle build in the real Dockerfile. NOT for CI/production use;
+# delete once local testing is done.
+
+FROM scratch AS build
+COPY core/build/libs/core-0.1.0-SNAPSHOT.jar /out/core.jar
+COPY tools/tool-support/build/libs/tool-support-0.1.0-SNAPSHOT.jar /out/plugins/tool-support.jar
+COPY tools/workspace-setup-tool/build/libs/workspace-setup-tool-0.1.0-SNAPSHOT.jar /out/plugins/workspace-setup-tool.jar
+COPY tools/file-read-tool/build/libs/file-read-tool-0.1.0-SNAPSHOT.jar /out/plugins/file-read-tool.jar
+COPY tools/file-edit-tool/build/libs/file-edit-tool-0.1.0-SNAPSHOT.jar /out/plugins/file-edit-tool.jar
+COPY tools/ask-human-tool/build/libs/ask-human-tool-0.1.0-SNAPSHOT.jar /out/plugins/ask-human-tool.jar
+COPY tools/github-api-tool/build/libs/github-api-tool-0.1.0-SNAPSHOT.jar /out/plugins/github-api-tool.jar
+COPY tools/http-request-tool/build/libs/http-request-tool-0.1.0-SNAPSHOT.jar /out/plugins/http-request-tool.jar
+COPY agents/planning-agent/build/libs/planning-agent-0.1.0-SNAPSHOT.jar /out/plugins/planning-agent.jar
+COPY agents/conversational-planning-agent/build/libs/conversational-planning-agent-0.1.0-SNAPSHOT.jar /out/plugins/conversational-planning-agent.jar
+COPY agents/coding-agent/build/libs/coding-agent-0.1.0-SNAPSHOT.jar /out/plugins/coding-agent.jar
+COPY agents/jira-updater-agent/build/libs/jira-updater-agent-0.1.0-SNAPSHOT.jar /out/plugins/jira-updater-agent.jar
+COPY agents/slack-gate-agent/build/libs/slack-gate-agent-0.1.0-SNAPSHOT.jar /out/plugins/slack-gate-agent.jar
+COPY agents/pr-comment-gate-agent/build/libs/pr-comment-gate-agent-0.1.0-SNAPSHOT.jar /out/plugins/pr-comment-gate-agent.jar
+COPY agents/conversation-resume-gate-agent/build/libs/conversation-resume-gate-agent-0.1.0-SNAPSHOT.jar /out/plugins/conversation-resume-gate-agent.jar
+COPY knowledge /out/knowledge
+
+FROM eclipse-temurin:25-jre-noble AS runtime
+WORKDIR /app
+
+# kubectl is needed by KubernetesSandboxWorkspaceClient#exec, which shells
+# out to it for `pods/exec` instead of using fabric8's own exec (see that
+# class's Javadoc for the confirmed fabric8 WebSocket-handshake bug this
+# works around).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && ARCH="$(dpkg --print-architecture)" \
+    && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" \
+    && chmod +x /usr/local/bin/kubectl \
+    && apt-get purge -y curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 1001 agentic \
+    && useradd --uid 1001 --gid agentic --shell /bin/bash --create-home agentic
+
+COPY --from=build /out/core.jar /app/application.jar
+RUN java -Djarmode=tools -jar /app/application.jar extract --destination /app/extracted \
+    && rm /app/application.jar
+
+COPY --from=build /out/knowledge /app/extracted/knowledge
+RUN chown -R agentic:agentic /app/extracted/knowledge
+
+ENV AGENTIC_WORKFLOWS_DIRECTORY=/config/workflows
+ENV AGENTIC_PLUGINS_DIRECTORY=/opt/agentic/plugins
+RUN mkdir -p /opt/agentic/plugins && chown agentic:agentic /opt/agentic/plugins
+
+USER agentic:agentic
+EXPOSE 8080
+
+WORKDIR /app/extracted
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-XX:+UseContainerSupport", \
+            "-jar", "application.jar"]
+
+FROM runtime AS runtime-with-default-modules
+USER root
+COPY --from=build /out/plugins/*.jar /opt/agentic/plugins/
+RUN chown -R agentic:agentic /opt/agentic/plugins
+USER agentic:agentic

@@ -1,0 +1,184 @@
+# Default values for java-cloud-agent-framework.
+# See README.md in this chart's directory for a walkthrough of how to
+# operate it (config changes, secrets, workflow updates).
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/manevpe/java-cloud-agent-framework
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart's appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# Grants the app's ServiceAccount permission (in its own namespace) to
+# create/manage the Kubernetes Pods (and exec into them) that back
+# CodingAgent's and PlanningAgent's sandbox workspace pods — see ADR-0005
+# and ADR-0008. Only needed when agentic.sandbox.enabled is true; harmless
+# to leave enabled otherwise (the RBAC objects just go unused).
+rbac:
+  create: true
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1001
+
+securityContext:
+  runAsUser: 1001
+  runAsGroup: 1001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: java-cloud-agent-framework.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 768Mi
+
+# Spring Boot's own Kubernetes health-probe groups (management.endpoint.
+# health.probes.enabled=true in application.yml) back these two endpoints.
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# --- Plugin jars (agentic.plugins.directory) ----------------------------
+# The `runtime` (bare) image ships with zero built-in agents and an empty
+# /opt/agentic/plugins (see the Dockerfile); the `-with-default-modules`
+# image variant already bakes every out-of-the-box agent/tool jar into
+# that same path, so `plugins.enabled` should stay `false` when using it
+# — this section is only for supplying your *own* (or additional)
+# ServiceLoader plugin jars into the bare image without a custom
+# Dockerfile. Disabled by default: zero cost/no-op deployment when unused.
+plugins:
+  enabled: false
+  # Must match the Dockerfile's AGENTIC_PLUGINS_DIRECTORY default unless
+  # you've overridden that env var too.
+  mountPath: /opt/agentic/plugins
+  # Any Kubernetes volume source (rendered as-is under `volumes:`), e.g.:
+  #   volume:
+  #     emptyDir: {}
+  # paired with `initContainers` below to populate it, or a pre-populated
+  # PVC:
+  #   volume:
+  #     persistentVolumeClaim:
+  #       claimName: my-plugin-jars
+  # See this chart's README.md "Supplying plugin jars" section for a full
+  # initContainer example (fetching jars from an OCI registry/artifact
+  # store at pod startup).
+  volume: {}
+  # Rendered as-is under the Pod spec's `initContainers:` — typically one
+  # container that fetches/copies plugin jars into the volume above
+  # before the main container starts.
+  initContainers: []
+
+# Extra volumes/volumeMounts for anything this chart doesn't model
+# explicitly (rendered as-is; see templates/deployment.yaml).
+volumes: []
+volumeMounts: []
+
+# --- Application configuration -----------------------------------------
+
+# Non-secret settings, rendered into a ConfigMap and consumed as env vars
+# (see templates/configmap.yaml + deployment.yaml). Keys use the same
+# relaxed-binding env var form Spring Boot expects
+# (agentic.llm.enabled -> AGENTIC_LLM_ENABLED).
+config:
+  AGENTIC_SANDBOX_ENABLED: "false"
+  AGENTIC_SANDBOX_NAMESPACE: "default"
+  AGENTIC_SANDBOX_WORKSPACE_IMAGE: "ghcr.io/manevpe/agentic-sandbox-workspace:latest"
+  AGENTIC_SANDBOX_WORKSPACE_ACTIVE_DEADLINE_SECONDS: "600"
+  AGENTIC_SANDBOX_COMMAND_TIMEOUT_SECONDS: "1800"
+  # Adds a privileged Docker-in-Docker sidecar to every workspace pod so
+  # repositories whose tests use Testcontainers work inside the sandbox
+  # (see SandboxProperties#dockerInDockerEnabled). The sidecar needs a
+  # privileged security context — if the sandbox namespace enforces the
+  # "restricted" or "baseline" Pod Security Standard, label it "privileged"
+  # first (see the chart's README) or workspace pods will fail to schedule.
+  AGENTIC_SANDBOX_DOCKER_IN_DOCKER_ENABLED: "false"
+  AGENTIC_SANDBOX_DOCKER_IN_DOCKER_IMAGE: "docker:27-dind"
+  AGENTIC_LLM_ENABLED: "false"
+  AGENTIC_LLM_PROVIDER: "vertex-ai-gemini"
+  AGENTIC_LLM_VERTEX_AI_LOCATION: "us-central1"
+  AGENTIC_LLM_VERTEX_AI_MODEL: "gemini-2.0-flash"
+  AGENTIC_KNOWLEDGE_ENABLED: "false"
+  AGENTIC_KNOWLEDGE_PROVIDER: "neo4j"
+  AGENTIC_KNOWLEDGE_NEO4J_URI: "bolt://neo4j:7687"
+  AGENTIC_KNOWLEDGE_NEO4J_USERNAME: "neo4j"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/java_cloud_agent_framework"
+  SPRING_DATASOURCE_USERNAME: "agentic"
+
+# Secret values. By default the chart creates a Secret from these plaintext
+# values (fine for a first deploy / non-prod); for anything real, set
+# secrets.create=false and pre-create a Secret named
+# `<release-name>-java-cloud-agent-framework` yourself (e.g. via Sealed Secrets,
+# External Secrets Operator, or `kubectl create secret` from a vault) with
+# the same keys, or point secretRefName at an existing one.
+secrets:
+  create: true
+  secretRefName: ""
+  values:
+    SPRING_DATASOURCE_PASSWORD: "change-me"
+    AGENTIC_KNOWLEDGE_NEO4J_PASSWORD: ""
+    AGENTIC_LLM_VERTEX_AI_PROJECT_ID: ""
+
+# Workflow definition YAML files, mounted read-only via a ConfigMap volume
+# at /config/workflows (see the Dockerfile's AGENTIC_WORKFLOWS_DIRECTORY
+# default). Add/change entries here + `helm upgrade` — no image rebuild;
+# a checksum annotation on the pod template forces a rolling restart to
+# pick up the change (WorkflowDefinitionRegistry only loads at startup).
+workflows:
+  jira-to-pr.yaml: |
+    # See workflows/examples/jira-to-pr.yaml in the repository for the
+    # canonical definition — copy its contents here (or override per
+    # environment via a values-<env>.yaml file) rather than duplicating it
+    # by hand.

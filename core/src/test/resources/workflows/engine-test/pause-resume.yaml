@@ -1,0 +1,29 @@
+workflow:
+  id: pause-resume-test
+  trigger:
+    type: webhook
+    source: test
+
+  nodes:
+    - id: start
+      agent: test-echo-agent
+      config:
+        marks: started
+
+    - id: await
+      agent: test-wait-once-agent
+      resumeTrigger:
+        type: event
+        source: test
+        event: answer
+
+    - id: finalize
+      agent: test-echo-agent
+      config:
+        marks: finalized
+
+  edges:
+    - from: start
+      to: await
+    - from: await
+      to: finalize

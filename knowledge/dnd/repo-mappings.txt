@@ -1,0 +1,22 @@
+For Jira project with key DND, the code is split between these github repositories.
+https://github.com/paymenttools/business-accounts - the main backend service for Business Accounts
+https://github.com/paymenttools/customer-credit-transfer - a backend service the fetches poseidon SEPA credit files from a gcp storage bucket and sends them over sftp
+https://github.com/paymenttools/data-enquiries-fe - the main frontend for Data Enquiries functionality
+https://github.com/paymenttools/deviations-fe - the main frontend for the Deviations functionality. Also known as the data validator functionality.
+https://github.com/paymenttools/global-payments-receiver - the global payments receiver. GP or global payments are a client of ours. Connects to a GP owned server via REST, gets the data from their side and writes it in a storage bucket.
+https://github.com/paymenttools/ikos-file-transfer - backend service to fetch Poseidon IKOS files from a bucket and upload them to the corresponding SFTP servers
+https://github.com/paymenttools/payment-reporting-system-docs - main source of additional information for the whole domain and system. You can use gh api to query the files here if you need additional system wide info https://github.com/paymenttools/payment-reporting-system-docs/tree/main/docs
+https://github.com/paymenttools/poseidon-report-extractor - moves poseidon data from one gcs bucket to another
+https://github.com/paymenttools/recon-report-frontend-showcase - main frontend service for the pivot table data explorer for reports
+https://github.com/paymenttools/reconciliation-receiver - a backend service to fetch reconciliation file archives (ZIP) from an RBI SFTP server. The files are extracted and written into the output bucket for further processing by other services.
+https://github.com/paymenttools/reporting-bff - a backend service to facilitate the communication between the frontend client app and the rest of the reporting backend services, by providing a REST api.
+https://github.com/paymenttools/reporting-data-enquiries - the main backend service for the Data Enquiries functionality.
+https://github.com/paymenttools/reporting-engine - the backend service that handles reports generation.
+https://github.com/paymenttools/reporting-frontend - the frontend service for the reporting.
+https://github.com/paymenttools/reporting-scheduler - a backend service that handles the scheduled execution of reports. This services handles the scheduling configuration and triggering of the execution events, which are propagated to the report-engine service to actually produce the reports.
+https://github.com/paymenttools/sftp-file-transfer - a backend service to transfer files to a customers sftp server.
+https://github.com/paymenttools/unified-master-data - a backend service that acts as the unified master data for the other reporting services. It keeps the master data in a database and provides a REST API for other services, when they need the latest master data.
+https://github.com/paymenttools/unified-transactions - a repository for documentation and sql definitions of our reporting data warehouse model schema.
+https://github.com/paymenttools/ut-data-validator - a backend service that validates the incoming data for the reports. If raises alerts when it finds a predefined patterns in the data. Also known as the deviations service.
+https://github.com/paymenttools/ut-file-consumer - the backend service that consumes incoming files, containing data used by the reporting services. It stores the data in the data warehouse.
+https://github.com/paymenttools/ut-topic-consumer - a backend service that consumes incoming topic messages with data used by the reporting services, and records the data in the data warehouse.

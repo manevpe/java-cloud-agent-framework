@@ -1,0 +1,8 @@
+1. Add new report in ReportType enum(reporting-engine)
+2. Add the sql script(s) to the sql resources folder
+3. Implement a generator extending ReportGenerator or GenericReportTemplate(if the report should only transform the result from the sql to a csv without additional adjustments)
+4. Add the json for the new report to the TestData.kt to make the controller test pass
+5. Add unit tests for the new report type
+6. Add functional tests for the new report (functional tests are still not set up for the reporting engine)
+7. If the report is a customer report, whitelist it (reporting-bff) in ReportEngineApiService and adjust the tests to make them aware of the new report type
+8. If the report is a customer report, be sure to add translations in the reporting-frontend

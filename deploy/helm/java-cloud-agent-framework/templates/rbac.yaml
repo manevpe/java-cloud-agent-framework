@@ -1,0 +1,33 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "java-cloud-agent-framework.fullname" . }}-sandbox
+  labels:
+    {{- include "java-cloud-agent-framework.labels" . | nindent 4 }}
+rules:
+  # Sandbox workspace pods (see SandboxWorkspaceClient / ADR-0005 / ADR-0008)
+  # — pods/exec is needed to clone/list/read/search/write/run/diff inside
+  # them (CodingAgent's and PlanningAgent's LLM tool-calling loops).
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "java-cloud-agent-framework.fullname" . }}-sandbox
+  labels:
+    {{- include "java-cloud-agent-framework.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "java-cloud-agent-framework.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "java-cloud-agent-framework.fullname" . }}-sandbox
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

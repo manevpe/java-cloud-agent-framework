@@ -1,0 +1,108 @@
+databaseChangeLog:
+  # LangGraph4j checkpoint storage (workflow_checkpoint),
+  # append-only audit log, and the pending-action approval-gate /
+  # wait-for-event queue.
+  #
+  # Design notes (kept intentionally simple / Postgres-idiomatic):
+  #  * UUID/text IDs generated client-side (Java) rather than DB sequences,
+  #    so the schema doesn't rely on Postgres-only identity/serial features.
+  #  * `state`/`payload` are stored as JSON but treated as an opaque blob by
+  #    the application (no JSON operators/GIN indexes relied upon).
+  #  * `thread_id` is LangGraph4j's `RunnableConfig` thread identifier (a
+  #    plain string, not a FK) — the single correlation key tying a
+  #    checkpoint, its audit trail, and any pending actions together.
+
+  - changeSet:
+      id: 001-create-workflow-checkpoint
+      author: manevpe
+      changes:
+        - createTable:
+            tableName: workflow_checkpoint
+            columns:
+              - column: { name: id, type: varchar(255), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: thread_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: node_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: next_node_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: state, type: json, constraints: { nullable: false } }
+              - column: { name: sequence, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamptz, constraints: { nullable: false } }
+        - createIndex:
+            indexName: ix_workflow_checkpoint_thread_id
+            tableName: workflow_checkpoint
+            columns:
+              - column: { name: thread_id }
+              - column: { name: sequence }
+
+  - changeSet:
+      id: 002-create-audit-log
+      author: manevpe
+      changes:
+        - createTable:
+            tableName: audit_log
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: thread_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: node_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: actor, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: action_type, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: payload, type: json, constraints: { nullable: false } }
+              - column: { name: approval_status, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: occurred_at, type: timestamptz, constraints: { nullable: false } }
+        - createIndex:
+            indexName: ix_audit_log_thread_id
+            tableName: audit_log
+            columns:
+              - column: { name: thread_id }
+
+  - changeSet:
+      id: 003-create-pending-action
+      author: manevpe
+      changes:
+        - createTable:
+            tableName: pending_action
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: thread_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: node_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: action_type, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: correlation_key, type: varchar(512) }
+              - column: { name: payload, type: json, constraints: { nullable: false } }
+              - column: { name: status, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: decided_by, type: varchar(255) }
+              - column: { name: created_at, type: timestamptz, constraints: { nullable: false } }
+              - column: { name: decided_at, type: timestamptz }
+        - createIndex:
+            indexName: ix_pending_action_thread_id
+            tableName: pending_action
+            columns:
+              - column: { name: thread_id }
+        - createIndex:
+            indexName: ix_pending_action_status
+            tableName: pending_action
+            columns:
+              - column: { name: status }
+        - createIndex:
+            # Portable (non-partial) unique index: ANSI SQL treats NULLs as
+            # distinct in a unique index (true on Postgres, Spanner, MySQL,
+            # SQL Server), so this enforces "at most one row per
+            # correlation_key" without any Postgres-only partial-index
+            # syntax. The uniqueness only needs to hold while a row is
+            # PENDING, so the application clears correlation_key to null
+            # once a PendingAction is approved/rejected (see
+            # PendingAction#approve/#reject) — resolved rows never collide.
+            indexName: uq_pending_action_correlation_key
+            tableName: pending_action
+            unique: true
+            columns:
+              - column: { name: correlation_key }
+
+  - changeSet:
+      id: 004-create-workflow-thread
+      author: manevpe
+      changes:
+        - createTable:
+            tableName: workflow_thread
+            columns:
+              - column: { name: thread_id, type: varchar(255), constraints: { primaryKey: true, nullable: false } }
+              - column: { name: workflow_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamptz, constraints: { nullable: false } }
