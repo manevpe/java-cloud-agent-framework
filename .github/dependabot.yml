@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Gradle dependencies (root build + every module, since Dependabot
+  # scans the whole multi-module Gradle project from the root manifest).
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      gradle-dependencies:
+        patterns:
+          - "*"
+
+  # GitHub Actions used in workflows under .github/workflows/.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Base images referenced by the Dockerfiles at the repo root.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

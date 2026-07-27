@@ -52,7 +52,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "agentic.workflows.directory=src/test/resources/workflows/coding-pr-test",
         "agentic.llm.enabled=true",
-        "agentic.llm.google-genai.project-id=fake-project-for-test"
+        // Use the API-key auth path (a fake key is fine — FakeLlmClient
+        // intercepts every call, so it's never actually sent) rather than
+        // the Vertex AI project-id path: the latter makes the
+        // com.google.genai.Client eagerly resolve Application Default
+        // Credentials at bean-creation time, which only succeeds on a
+        // machine with `gcloud auth application-default login` already
+        // run — never true on a clean CI runner.
+        "agentic.llm.google-genai.api-key=fake-api-key-for-test"
 })
 @AutoConfigureMockMvc
 @Import(FakeLlmClient.Config.class)

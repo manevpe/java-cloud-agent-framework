@@ -113,6 +113,20 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // LlmEnabledWiringTest exercises the Vertex AI-backed ChatModel bean
+    // with agentic.llm.enabled=true and no apiKey, so com.google.genai.Client
+    // resolves Application Default Credentials while constructing the
+    // client — even though the test never makes an actual API call. That
+    // resolution only needs a *loadable* credentials file, not a working
+    // one, so point it at a throwaway, non-functional test fixture
+    // (src/test/resources/fake-gcp-service-account.json) rather than
+    // relying on a real `gcloud auth application-default login` having
+    // been run on the machine running the build (never true on a clean
+    // CI runner).
+    if (System.getenv("GOOGLE_APPLICATION_CREDENTIALS").isNullOrBlank()) {
+        environment("GOOGLE_APPLICATION_CREDENTIALS", "${projectDir}/src/test/resources/fake-gcp-service-account.json")
+    }
 }
 
 tasks.withType<JavaCompile> {
