@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-This project is pre-1.0 (`0.1.0-SNAPSHOT`) and does not yet maintain
-multiple supported release branches. Security fixes are made against
+This project is pre-1.0 and does not yet maintain multiple supported
+release branches. Security fixes are made against
 `main` only.
 
 | Version | Supported |
