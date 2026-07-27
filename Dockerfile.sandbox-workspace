@@ -32,7 +32,7 @@
 # derived image instead.
 
 FROM eclipse-temurin:25-jdk-noble AS java
-FROM node:24-bookworm-slim AS node
+FROM node:26-bookworm-slim AS node
 FROM golang:1.26-bookworm AS go
 FROM docker:29-cli AS docker-cli
 
