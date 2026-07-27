@@ -7,7 +7,7 @@ import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
-import org.testcontainers.containers.Neo4jContainer;
+import org.testcontainers.neo4j.Neo4jContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class Neo4jKnowledgeSourceTest {
 
     @Container
-    static Neo4jContainer<?> neo4j = new Neo4jContainer<>("neo4j:5-community").withoutAuthentication();
+    static Neo4jContainer neo4j = new Neo4jContainer("neo4j:5-community").withoutAuthentication();
 
     static Driver driver;
 
