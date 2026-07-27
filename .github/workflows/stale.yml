@@ -1,7 +1,7 @@
 name: Stale
 
 # Auto-labels and eventually closes inactive issues/PRs. Exempts
-# security advisories and pinned/roadmap items so nothing important is
+# pinned/roadmap items and anything labeled `security` so nothing important is
 # silently closed.
 on:
   schedule:
