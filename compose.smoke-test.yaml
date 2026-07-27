@@ -1,0 +1,30 @@
+# Full-stack manual smoke-test compose file — NOT used by Spring Boot's
+# docker-compose auto-integration (that only reads compose.yaml). Run
+# alongside it to exercise the actual container image end-to-end:
+#
+#   docker build -t java-cloud-agent-framework:local .
+#   docker compose -f compose.yaml -f compose.smoke-test.yaml up -d
+#   curl http://localhost:8080/actuator/health
+#   docker compose -f compose.yaml -f compose.smoke-test.yaml down
+#
+services:
+  app:
+    image: java-cloud-agent-framework:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/java_cloud_agent_framework
+      SPRING_DATASOURCE_USERNAME: agentic
+      SPRING_DATASOURCE_PASSWORD: agentic
+      AGENTIC_KNOWLEDGE_NEO4J_URI: bolt://neo4j:7687
+      AGENTIC_WORKFLOWS_DIRECTORY: /config/workflows
+    volumes:
+      # Stand-in for the ConfigMap volume mount used in Kubernetes (see
+      # deploy/helm/.../templates/deployment.yaml) — mounts the repo's own
+      # example workflow(s) read-only at the same path.
+      - ./workflows/examples:/config/workflows:ro
+    ports:
+      - "8080:8080"

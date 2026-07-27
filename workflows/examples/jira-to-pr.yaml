@@ -1,0 +1,102 @@
+workflow:
+  id: jira-to-pr
+  trigger:
+    type: webhook
+    source: jira
+    condition: "labels.contains('ready-for-dev')"
+
+  nodes:
+    - id: plan
+      agent: planning-agent
+      config:
+        llmProfile: vertex-gemini-planner
+        # Each entry is a self-contained source spec: {type: directory,
+        # path: ...} reads that directory's files verbatim, {type: neo4j,
+        # database: ...} queries the given database in the shared Neo4j
+        # instance (agentic.knowledge.neo4j.enabled must be true) — see
+        # NodeKnowledgeSourceResolver. Different nodes can list entirely
+        # different sources. An empty/omitted list means this node gets
+        # no knowledge context at all.
+        knowledgeSources:
+          - type: directory
+            path: ./knowledge/example-domain
+          # - type: neo4j
+          #   database: domain-knowledge
+        # Multi-round Slack clarification loop (plan <-> await-clarifications
+        # below): redrafts using the full clarification history each round,
+        # up to this many rounds before proceeding regardless — see
+        # PlanningAgent's Javadoc. Default is 12 if omitted.
+        maxClarificationRounds: 12
+
+    - id: await-clarifications
+      agent: human-gate
+      config:
+        channel: "#agentic_cloud_test"
+      resumeTrigger:
+        type: event
+        source: slack
+        event: thread_reply
+
+    # Posting a plan comment is low-risk/reversible, so it auto-executes
+    # instead of pausing for approval — see ADR-0004.
+    - id: post-plan
+      agent: jira-updater-agent
+
+    # Implements the plan and opens a PR for it, blocking in-process on the
+    # sandbox build/test — see ADR-0005 (this node no longer pauses/resumes
+    # the graph; the workflow engine runs it on a background executor, so
+    # blocking here doesn't hang the originating webhook request).
+    - id: implement
+      agent: coding-agent
+      config:
+        mode: implement
+        llmProfile: vertex-gemini-coder
+        #repository: paymenttools/reporting-engine
+        knowledgeSources:
+          - type: directory
+            path: ./knowledge/example-domain
+
+    - id: pr-feedback-loop
+      agent: pr-comment-gate
+      resumeTrigger:
+        type: event
+        source: github
+        # A single webhook target handles both a submitted review (batching
+        # every comment left in it) and the PR being merged/closed — see
+        # PrCommentGateAgent's Javadoc.
+        event: pr_review_submitted_or_closed
+
+    # Decides whether review feedback needs a code change, replies, and —
+    # if needed — pushes an amending commit, all inline (see ADR-0005). No
+    # separate approval gate on the amendment: the checkpoint for code
+    # changes is the PR review/merge itself, same as the initial change
+    # (see ADR-0004).
+    - id: respond-to-pr-comment
+      agent: coding-agent
+      config:
+        mode: respond-to-review
+        maxIterations: 5
+
+  edges:
+    - from: plan
+      to: await-clarifications
+      condition: hasOpenQuestions
+    - from: plan
+      to: post-plan
+      condition: noOpenQuestions
+    # Loops back into "plan" rather than straight to "post-plan": PlanningAgent
+    # redrafts using the accumulated clarification history and only routes
+    # here again (via hasOpenQuestions) if genuinely still unresolved, up to
+    # its own maxClarificationRounds safeguard - see PlanningAgent's Javadoc.
+    - from: await-clarifications
+      to: plan
+    - from: post-plan
+      to: implement
+    - from: implement
+      to: pr-feedback-loop
+      condition: sandboxTestsPassed
+    - from: pr-feedback-loop
+      to: respond-to-pr-comment
+    - from: respond-to-pr-comment
+      to: pr-feedback-loop
+      condition: canContinuePrFeedbackLoop

@@ -1,0 +1,171 @@
+spring:
+  application:
+    name: java-cloud-agent-framework
+  # Spring AI's own Google GenAI (Vertex AI Gemini backend) starter
+  # autoconfiguration eagerly builds a ChatModel bean at context-startup
+  # time and fails hard without credentials set — which would break every
+  # @SpringBootTest merely by having the starter on the classpath. This
+  # project builds that bean itself (see GoogleGenAiAutoConfiguration),
+  # gated behind agentic.llm.enabled, so the starter's own autoconfiguration
+  # is permanently excluded.
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration
+      # The OpenAI starter (used for the github-models provider) also
+      # auto-registers audio/image/embedding/moderation configs we don't
+      # use; all are excluded for the same reason as the chat one below.
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    hibernate:
+      # Liquibase owns the schema; Hibernate only validates entity <-> table
+      # mapping so drift between entities and changesets fails fast at startup.
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+agentic:
+  workflows:
+    directory: workflows/examples
+  # External plugin jars (custom Agent/EdgeCondition/Skill
+  # implementations discovered via java.util.ServiceLoader — see
+  # PluginManager and plugins-template/). Unset (default) or a
+  # non-existent directory disables plugin loading entirely.
+  # plugins:
+  #   directory: plugins
+  agents:
+    # Built-in (or plugin-provided) agent types to disable by their
+    # Agent#type() id, e.g. [pr-comment-gate] — see AgentRegistry.
+    disabled-types: []
+  sandbox:
+    enabled: false
+    namespace: default
+    workspace-image: ghcr.io/manevpe/agentic-sandbox-workspace:latest
+    # Must comfortably exceed command-timeout-seconds: a coding session can run
+    # several long build/test commands back-to-back in the same workspace pod,
+    # and if this safety net is too tight, Kubernetes can force-kill the pod
+    # mid-command, leaving the exec call hanging on a dead connection instead
+    # of failing cleanly (SandboxProperties widens+warns if misconfigured).
+    workspace-active-deadline-seconds: 7200
+    command-timeout-seconds: 1800
+    docker-in-docker-enabled: false
+    docker-in-docker-image: docker:27-dind
+  llm:
+    enabled: false
+    provider: google-genai
+    google-genai:
+      location: us-central1
+      model: gemini-2.0-flash
+    # GitHub Models (models.github.ai): an alternative provider using a
+    # GitHub PAT with `models: read` permission — see GitHubModelsAutoConfiguration.
+    # github-models:
+    #   token: ${GITHUB_MODELS_TOKEN}
+    #   model: openai/gpt-4o
+    planning:
+      system-prompt-location: classpath:prompts/planning-system-prompt.st
+      user-prompt-location: classpath:prompts/planning-user-prompt.st
+    conversational-planning:
+      system-prompt-location: classpath:prompts/conversational-planning-system-prompt.st
+      user-prompt-location: classpath:prompts/conversational-planning-user-prompt.st
+    coding:
+      system-prompt-location: classpath:prompts/coding-system-prompt.st
+      user-prompt-location: classpath:prompts/coding-user-prompt.st
+    pr-response:
+      system-prompt-location: classpath:prompts/pr-response-system-prompt.st
+      user-prompt-location: classpath:prompts/pr-response-user-prompt.st
+  knowledge:
+    # Each workflow node picks its own knowledge sources inline via its
+    # knowledgeSources: [...] config in the workflow YAML — a list of
+    # {type: directory, path: ...} or {type: neo4j, database: ...}
+    # entries. Directories are read once (plain-text/Markdown files
+    # passed to the LLM verbatim, no parsing/keyword indexing) and Neo4j
+    # sources query whichever database the node names, within the single
+    # shared instance configured below. An empty/absent list on a node
+    # means that node gets no knowledge context at all.
+    neo4j:
+      enabled: false
+      uri: bolt://localhost:7687
+      username: neo4j
+      # Connection only — each node selects its own database via its
+      # knowledgeSources config, e.g. {type: neo4j, database: domain-knowledge}.
+      result-limit: 20
+  jira:
+    enabled: false
+    # base-url: https://your-domain.atlassian.net
+    # email: ${JIRA_EMAIL}
+    # api-token: ${JIRA_API_TOKEN}
+  slack:
+    enabled: false
+    # bot-token: ${SLACK_BOT_TOKEN}
+  github:
+    enabled: false
+    # token: ${GITHUB_TOKEN}
+    # api-base-url: https://api.github.com
+    # clone-base-url: https://github.com
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health (with k8s liveness/readiness groups below), prometheus
+        # scrape endpoint, and basic build/env info — deliberately not
+        # "*" so we don't accidentally expose sensitive actuator endpoints
+        # (env, heapdump, ...) over HTTP.
+        include: health, prometheus, info
+  endpoint:
+    health:
+      # Exposes /actuator/health/liveness and /actuator/health/readiness —
+      # Spring Boot's own Kubernetes probe groups — for the Helm chart's
+      # Deployment probes (see deploy/helm/.../templates/deployment.yaml).
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  structured:
+    # Native Spring Boot structured (JSON) logging so a log aggregator can
+    # parse fields directly. MDC values set per workflow invocation
+    # (threadId, traceId, workflowId — see WorkflowEngineService) are
+    # automatically included as top-level fields, giving per-thread log
+    # correlation. Applied to both the console and the dedicated trace log
+    # file below, so either can be parsed/queried the same way (e.g.
+    # `jq 'select(.traceId == "...")' logs/java-cloud-agent-framework.log`).
+    format:
+      console: ecs
+      file: ecs
+  file:
+    # A single file every event in the system is written to (in addition
+    # to the console), so it can be tailed/grepped/jq'd directly rather
+    # than relying only on whatever's captured console-side — see docs
+    # for how threadId/traceId/workflowId tie a workflow execution's log
+    # lines together, and SpringAiLlmClient/WorkspaceSetupTool/FileReadTool
+    # for where the LLM's own prompts, responses, and tool calls are logged.
+    name: logs/java-cloud-agent-framework.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 14
+      total-size-cap: 1GB
+

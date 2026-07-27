@@ -1,0 +1,16 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.idea/
+*.iml
+out/
+.DS_Store
+
+# Local-dev secrets — copy application-local.yml.example to this filename
+# and fill in real values; never commit it.
+core/src/main/resources/application-local.yml
+
+# Structured trace log file (see logging.file.name in application.yml) —
+# runtime output, never committed.
+logs/
+

@@ -1,0 +1,30 @@
+workflow:
+  id: jira-plan-only-conversational-test
+  trigger:
+    type: webhook
+    source: jira
+    condition: "labels.contains('ready-for-dev')"
+
+  nodes:
+    - id: plan
+      agent: conversational-planning-agent
+
+    - id: conversation-resume-gate
+      agent: conversation-resume-gate
+      resumeTrigger:
+        type: event
+        source: slack
+        event: thread_reply
+
+    - id: post-plan
+      agent: jira-updater-agent
+
+  edges:
+    - from: plan
+      to: conversation-resume-gate
+      condition: conversationAwaitingHuman
+    - from: plan
+      to: post-plan
+      condition: conversationComplete
+    - from: conversation-resume-gate
+      to: plan

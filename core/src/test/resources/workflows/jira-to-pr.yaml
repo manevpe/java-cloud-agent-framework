@@ -1,0 +1,70 @@
+workflow:
+  id: jira-to-pr
+  trigger:
+    type: webhook
+    source: jira
+    condition: "labels.contains('ready-for-dev')"
+
+  nodes:
+    - id: plan
+      agent: planning-agent
+      config:
+        llmProfile: vertex-gemini-planner
+        knowledgeSources: [neo4j, backstage-catalog, context-files]
+
+    - id: await-clarifications
+      agent: human-gate
+      resumeTrigger:
+        type: event
+        source: slack
+        event: thread_reply
+
+    - id: post-plan
+      agent: jira-updater-agent
+      requiresApproval: true
+
+    - id: implement
+      agent: coding-agent
+      config:
+        mode: implement
+        llmProfile: vertex-gemini-coder
+        sandbox: devcontainer
+        repoContext: [neo4j, backstage-catalog]
+
+    - id: pr-feedback-loop
+      agent: pr-comment-gate
+      requiresApproval: true
+      resumeTrigger:
+        type: event
+        source: github
+        event: pr_review_submitted_or_closed
+
+    - id: respond-to-pr-comment
+      agent: coding-agent
+      config:
+        mode: respond-to-review
+        maxIterations: 5
+
+  edges:
+    - from: plan
+      to: await-clarifications
+      condition: hasOpenQuestions
+    - from: plan
+      to: post-plan
+      condition: noOpenQuestions
+    # Loops back into "plan" rather than straight to "post-plan": PlanningAgent
+    # redrafts using the accumulated clarification history and only routes
+    # here again (via hasOpenQuestions) if genuinely still unresolved, up to
+    # its own maxClarificationRounds safeguard - see PlanningAgent's Javadoc.
+    - from: await-clarifications
+      to: plan
+    - from: post-plan
+      to: implement
+    - from: implement
+      to: pr-feedback-loop
+      condition: sandboxTestsPassed
+    - from: pr-feedback-loop
+      to: respond-to-pr-comment
+    - from: respond-to-pr-comment
+      to: pr-feedback-loop
+      condition: canContinuePrFeedbackLoop

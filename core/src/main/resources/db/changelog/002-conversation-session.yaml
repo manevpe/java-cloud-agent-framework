@@ -1,0 +1,42 @@
+databaseChangeLog:
+  # Durable ConversationSession storage backing
+  # the session-based "askHuman" conversational agent model (see
+  # ConversationalPlanningAgent / ADR-0003), used alongside — not instead
+  # of — the LangGraph4j checkpoint/pending-action pause/resume mechanism
+  # from 001-init-schema.yaml.
+  #
+  #  * `turns` is stored as JSON but treated as an opaque blob (same
+  #    approach as `pending_action.payload`) — no JSON operators relied on,
+  #    so this is easy to reproduce against a different database's JSON
+  #    column type later.
+  #  * `correlation_key` reuses the same "at most one row waiting per key"
+  #    idea as `pending_action`, but scoped to AWAITING_HUMAN sessions only
+  #    (a completed session may legitimately keep its last correlation_key
+  #    value for audit purposes without colliding with a new one).
+
+  - changeSet:
+      id: 005-create-conversation-session
+      author: manevpe
+      changes:
+        - createTable:
+            tableName: conversation_session
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: workflow_thread_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: agent_type, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: status, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: correlation_key, type: varchar(512) }
+              - column: { name: turns, type: json, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamptz, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamptz, constraints: { nullable: false } }
+        - createIndex:
+            indexName: ix_conversation_session_thread_id
+            tableName: conversation_session
+            columns:
+              - column: { name: workflow_thread_id }
+        - createIndex:
+            indexName: ix_conversation_session_correlation_key
+            tableName: conversation_session
+            columns:
+              - column: { name: correlation_key }
+              - column: { name: status }

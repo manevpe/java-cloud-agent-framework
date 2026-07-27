@@ -1,0 +1,34 @@
+workflow:
+  id: jira-plan-only-test
+  trigger:
+    type: webhook
+    source: jira
+    condition: "labels.contains('ready-for-dev')"
+
+  nodes:
+    - id: plan
+      agent: planning-agent
+
+    - id: await-clarifications
+      agent: human-gate
+      resumeTrigger:
+        type: event
+        source: slack
+        event: thread_reply
+
+    - id: post-plan
+      agent: jira-updater-agent
+
+  edges:
+    - from: plan
+      to: await-clarifications
+      condition: hasOpenQuestions
+    - from: plan
+      to: post-plan
+      condition: noOpenQuestions
+    # Loops back into "plan" rather than straight to "post-plan": PlanningAgent
+    # redrafts using the accumulated clarification history and only routes
+    # here again (via hasOpenQuestions) if genuinely still unresolved, up to
+    # its own maxClarificationRounds safeguard - see PlanningAgent's Javadoc.
+    - from: await-clarifications
+      to: plan
