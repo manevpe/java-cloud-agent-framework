@@ -14,7 +14,7 @@ release branches. Security fixes are made against
 
 Please **do not** open a public GitHub issue for security
 vulnerabilities. Instead, report it privately using
-[GitHub Security Advisories](https://github.com/manevpe/java-cloud-agent-framework/security/advisories/new)
+[GitHub Security Advisories](/security/advisories/new)
 for this repository.
 
 Include, where possible:
