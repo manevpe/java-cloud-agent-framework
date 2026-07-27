@@ -23,21 +23,21 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.2.2
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9  # v4.8.0
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@3b0bd1d116c0bde30213346b22d4f634d96a2fb0  # v3.29.0
         with:
           languages: java-kotlin
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d  # v4.3.1
 
       # Autobuild doesn't reliably handle this multi-module Gradle build
       # (13+ modules, custom toolchain wiring in the root build.gradle.kts),
@@ -46,6 +46,6 @@ jobs:
         run: ./gradlew assemble --no-daemon
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@3b0bd1d116c0bde30213346b22d4f634d96a2fb0  # v3.29.0
         with:
           category: "/language:java-kotlin"

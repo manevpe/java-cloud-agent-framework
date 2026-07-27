@@ -5,5 +5,25 @@
     ".": {
       "package-name": "java-cloud-agent-framework"
     }
-  }
+  },
+  "extra-files": [
+    {
+      "type": "generic",
+      "path": "build.gradle.kts",
+      "search": "version = \"[^\"]*\"",
+      "replace": "version = \"${version}\""
+    },
+    {
+      "type": "generic",
+      "path": "deploy/helm/java-cloud-agent-framework/Chart.yaml",
+      "search": "^version: .*$",
+      "replace": "version: ${version}"
+    },
+    {
+      "type": "generic",
+      "path": "deploy/helm/java-cloud-agent-framework/Chart.yaml",
+      "search": "^appVersion: .*$",
+      "replace": "appVersion: \"${version}\""
+    }
+  ]
 }
