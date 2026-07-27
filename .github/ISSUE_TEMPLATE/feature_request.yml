@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest an enhancement to the framework, an agent/tool module, or a workflow
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What's missing or painful today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? Include any API/config/YAML shape if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: adr
+    attributes:
+      label: Architectural impact
+      options:
+        - label: This may require a new/updated ADR (see `docs/adr/`)
+          required: false

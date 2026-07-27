@@ -1,0 +1,4 @@
+# See https://docs.github.com/articles/about-codeowners for syntax.
+# Last matching pattern wins, so this catch-all at the top is the
+# fallback for anything not covered by a more specific rule below.
+* @manevpe

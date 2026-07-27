@@ -1,0 +1,23 @@
+name: Dependency review
+
+# Blocks PRs that introduce a known-vulnerable dependency version or a
+# disallowed license, across every ecosystem manifest touched in the
+# diff (Gradle, GitHub Actions, Docker base images).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
