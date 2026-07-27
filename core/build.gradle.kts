@@ -101,9 +101,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
-    testImplementation("org.testcontainers:neo4j")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("org.testcontainers:testcontainers-neo4j")
     testImplementation("org.assertj:assertj-core:3.27.7")
     // Fabric8's in-process mock Kubernetes API server, for verifying Job specs
     // submitted by KubernetesSandboxJobDispatcher without a real cluster.
