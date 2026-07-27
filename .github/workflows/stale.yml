@@ -1,0 +1,36 @@
+name: Stale
+
+# Auto-labels and eventually closes inactive issues/PRs. Exempts pinned/roadmap
+# issues and anything labeled `security` (issues/PRs) so nothing important is
+# silently closed.
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  # v9.1.0
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: pinned,security,roadmap
+          exempt-pr-labels: pinned,security
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it
+            has had no activity for 60 days. It will be closed in 14 days
+            if no further activity occurs. Remove the `stale` label or
+            comment to keep it open.
+          stale-pr-message: >
+            This pull request has been automatically marked as stale
+            because it has had no activity for 60 days. It will be closed
+            in 14 days if no further activity occurs.
+          exempt-draft-pr: true

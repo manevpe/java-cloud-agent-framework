@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a problem with the framework, an agent/tool module, or a workflow definition
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, workflow YAML, or module involved.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / stack trace
+      render: shell
+
+  - type: input
+    id: module
+    attributes:
+      label: Affected module(s)
+      placeholder: "e.g. core, agents/planning-agent, tools/github-api-tool"
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: "e.g. commit SHA or tag"
+    validations:
+      required: false
