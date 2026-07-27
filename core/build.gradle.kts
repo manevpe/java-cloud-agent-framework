@@ -64,13 +64,13 @@ dependencies {
     // client-side WebSocket-handshake bug, not a cluster/RBAC/version
     // issue. See KubernetesSandboxWorkspaceClient#exec for the
     // kubectl-subprocess workaround used instead.
-    implementation("io.fabric8:kubernetes-client:7.3.1")
+    implementation("io.fabric8:kubernetes-client:7.8.0")
 
     // Real GitHub integration: JGit for local clone/branch/commit/push
     // (applying a unified diff produced by the sandbox workspace), plain
     // RestClient (already on the classpath via spring-boot-starter-web)
     // for the GitHub REST API itself (PR creation/comments/file reads).
-    implementation("org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r")
 
     // LLM integration: Vertex AI Gemini via Spring AI. Config-gated;
     // see LlmAutoConfiguration for why the starter's own autoconfiguration is
@@ -100,15 +100,15 @@ dependencies {
     // Spring Boot 4.1 modularized MockMvc test support out of spring-boot-test-autoconfigure.
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:1.20.4"))
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
-    testImplementation("org.testcontainers:neo4j")
-    testImplementation("org.assertj:assertj-core:3.26.3")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("org.testcontainers:testcontainers-neo4j")
+    testImplementation("org.assertj:assertj-core:3.27.7")
     // Fabric8's in-process mock Kubernetes API server, for verifying Job specs
     // submitted by KubernetesSandboxJobDispatcher without a real cluster.
-    testImplementation("io.fabric8:kubernetes-junit-jupiter:7.3.1")
-    testImplementation("io.fabric8:kubernetes-server-mock:7.3.1")
+    testImplementation("io.fabric8:kubernetes-junit-jupiter:7.8.0")
+    testImplementation("io.fabric8:kubernetes-server-mock:7.8.0")
 }
 
 tasks.withType<Test> {
